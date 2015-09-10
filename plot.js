@@ -1,9 +1,5 @@
 $(function () {
   Highcharts.setOptions({
-    tooltip: {
-      valueDecimals: 2,
-      delay: 500
-    },
     loading: {
       style: {
         backgroundColor: 'silver'
@@ -12,12 +8,6 @@ $(function () {
         color: "white",
         font: "16px helvetica, sans-serif"
       }
-    },
-    credits: {
-      enabled: false
-    },
-    title: {
-      margin: 0
     }
   });
 
@@ -119,7 +109,15 @@ function makeLineChart(title, yAxisTitle, series, divId, showLegend, showNav,
       }
     },
     title: {
-      text: title
+      text: title,
+      margin: 0
+    },
+    credits: {
+      enabled: false
+    },
+    tooltip: {
+      valueDecimals: 2,
+      hideDelay: 500
     },
     xAxis: xAxis,
     yAxis: {

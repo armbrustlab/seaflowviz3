@@ -1,7 +1,8 @@
 $(function () {
   Highcharts.setOptions({
     tooltip: {
-      valueDecimals: 2
+      valueDecimals: 2,
+      delay: 500
     },
     loading: {
       style: {
@@ -14,33 +15,36 @@ $(function () {
     },
     credits: {
       enabled: false
+    },
+    title: {
+      margin: 0
     }
   });
 
-  chart.par = makeParChart("PAR", "PAR (w/m2)",
-                           [{name: "PAR", data: []}], "par");
-  chart.temp = makeLineChart("Temperature", "Temp (degC)",
-                             [{name: "Temperature", data: []}], "temp");
-  chart.salinity = makeLineChart("Salinity", "Salinity (psu)",
-                                 [{name: "Salinity", data: []}], "salinity");
-  var emptyAbundanceSeries = [];
-  var emptyFscSmallSeries = [];
-  popLabels.forEach(function(pop) {
-    emptyAbundanceSeries.push({name: pop, data: []});
-    emptyFscSmallSeries.push({name: pop, data: []});
-  });
-  chart.abundance = makeLineChart("Abundance", "Abundance (10^6 cells/L)",
-                                  emptyAbundanceSeries, "abundance", true);
-  chart.fsc_small = makeLineChart("Forward Scatter", "Forward scatter (a.u.)",
-                                  emptyFscSmallSeries, "size", true);
+  // Make empty charts
+  chart.salinity = makeLineChart(null, "Salinity (psu)",
+                                 [{name: "Salinity", data: []}], "salinity",
+                                 false, false, false);
+  chart.temp = makeLineChart(null, "Temp (degC)",
+                             [{name: "Temperature", data: []}], "temp", false,
+                             false, false);
+  chart.fsc_small = makeLineChart(null, "Forward scatter (a.u.)",
+                                  makeEmptyPopSeries(), "size", true, false,
+                                  false);
+  chart.abundance = makeLineChart(null, "Abundance (10^6 cells/L)",
+                                  makeEmptyPopSeries(), "abundance", true,
+                                  true, true);
   getSflData(function(data) {
-    addToSingleSeries(chart.par, data, "par");
-    addToSingleSeries(chart.temp, data, "temp");
     addToSingleSeries(chart.salinity, data, "salinity");
-  });
-  getStatData(function(data) {
-    addToPopSeries(chart.abundance, data, "abundance");
-    addToPopSeries(chart.fsc_small, data, "fsc_small");
+    addToSingleSeries(chart.temp, data, "temp");
+    addToNavigatorSeries(chart.abundance, data, "par");
+    addXPlotBands(chart.temp.xAxis[0], data, "par");
+    addXPlotBands(chart.fsc_small.xAxis[0], data, "par");
+    addXPlotBands(chart.abundance.xAxis[0], data, "par");
+    getStatData(function(data) {
+      addToPopSeries(chart.fsc_small, data, "fsc_small");
+      addToPopSeries(chart.abundance, data, "abundance");
+    });
   });
 });
 
@@ -55,59 +59,49 @@ for (var i = 0; i < popNames.length; i++) {
   popLookup[popLabels[i]] = popNames[i];
 }
 // ISO String of most recent SFL date received
-var lastSflISO = null, lastStatISO = null, lastCstarISO = null;
+var lastISO = null;
 var chart = Object.create(null);
 
-
-function makeParChart(title, yAxisTitle, series, divId) {
-  var c = Highcharts.StockChart({
-    chart: {
-      renderTo: divId
-    },
-    legend: {
-      enabled: false
-    },
-    rangeSelector: {
-      enabled: false
-    },
-    plotOptions: {
+function makeLineChart(title, yAxisTitle, series, divId, showLegend, showNav,
+                       showXAxis) {
+  var nav = {
+    enabled: false
+  };
+  if (showNav) {
+    nav = {
+      enabled: true,
+      adaptToUpdatedData: false,
       series: {
-        gapSize: 2
+        data: []
       }
-    },
-    title: {
-      text: title
-    },
-    xAxis: {
-      type: "datetime",
-      events: {
-        setExtremes: throttledcb(function(e) {
-          setExtremes(e.min, e.max);
-        }, 250)
-      }
-    },
-    yAxis: {
-      title: {
-        text: yAxisTitle
-      }
-    },
-    series: series
-  });
-  c.showLoading();
-  return c;
-}
+    };
+  }
+  var xAxis = {
+    type: "datetime",
+    events: {
+      setExtremes: throttledcb(function(e) {
+        setExtremes(e.min, e.max);
+      }, 250)
+    }
+  };
+  if (! showXAxis) {
+    xAxis.labels = { enabled: false };
+    xAxis.lineWidth = 0;
+    xAxis.lineColor = "transparent";
+    xAxis.tickLength = 0;
+    xAxis.minorTickLength = 0;
+  }
 
-function makeLineChart(title, yAxisTitle, series, divId, showLegend) {
   var c = new Highcharts.StockChart({
     chart: {
-      renderTo: divId
+      renderTo: divId,
+      plotBorderWidth: 2,
+      spacingBottom: 3
     },
     legend: {
       enabled: showLegend
     },
-    navigator: {
-      enabled: false
-    },
+    navigator: nav,
     rangeSelector: {
       enabled: false
     },
@@ -118,19 +112,16 @@ function makeLineChart(title, yAxisTitle, series, divId, showLegend) {
       series: {
         events: {
           click: function(e) {
-            console.log(e.point);
             removePoint(e.point);
           }
-        }
-      },
-      gapSize: 2
+        },
+        cursor: "pointer"
+      }
     },
     title: {
       text: title
     },
-    xAxis: {
-      type: "datetime"
-    },
+    xAxis: xAxis,
     yAxis: {
       title: {
         text: yAxisTitle
@@ -142,8 +133,18 @@ function makeLineChart(title, yAxisTitle, series, divId, showLegend) {
   return c;
 }
 
+function makeEmptyPopSeries() {
+  var series = [],
+      legendIndex = 0;
+  popLabels.forEach(function(pop) {
+    series.push({name: pop, data: [], legendIndex: legendIndex});
+    legendIndex++;
+  });
+  return series;
+}
+
 function setExtremes(min, max) {
-  ["temp", "salinity", "abundance", "fsc_small"].forEach(function(c) {
+  ["temp", "salinity", "fsc_small"].forEach(function(c) {
     if (chart[c]) {
       chart[c].xAxis[0].setExtremes(min, max);
     }
@@ -176,48 +177,111 @@ function addToPopSeries(chart, data, key) {
   chart.redraw();
 }
 
+function addXPlotBands(axis, data, key) {
+  var xvals = data.map(function(d) { return d.date; }),
+      yvals = data.map(function(d) { return d[key]; });
+  var spans = lowSpans(xvals, yvals, 0.01);
+  spans.forEach(function(s) {
+    axis.addPlotBand({
+      color: "rgba(0, 0, 0, 0.1)",
+      from: s[0],
+      to: s[1]
+    });
+  });
+}
+
+function addToNavigatorSeries(chart, data, key) {
+  var nav = getNavigator(chart);
+  if (nav) {
+    data.forEach(function(d) {
+      nav.addPoint([d.date, d[key]], false);
+    });
+  }
+  chart.redraw();
+}
+
+function getNavigator(chart) {
+  var nav = null;
+  chart.series.forEach(function(s) {
+    if (s.name === "Navigator") {
+      nav = s;
+    }
+  });
+  return nav;
+}
+
+// Return an array of [start, stop] x positions corresponding to runs of values
+// in y < cutoff.
+function lowSpans(xvals, yvals, cutoff) {
+  var spans = [],
+      start = null;
+
+  for (var i=0; i<xvals.length; i++) {
+    if (yvals[i] < cutoff) {
+      if (start === null) {
+        start = xvals[i];
+      }
+    } else {
+      if (start !== null) {
+        spans.push([start, xvals[i-1]]);
+        start = null;
+      }
+    }
+  }
+  if (start !== null) {
+    spans.push([start, xvals[xvals.length-1]]);
+  }
+
+  return spans;
+}
+
 // Remove a single point. If this point represents grouped data remove all
 // points in underlying raw series data, series.xData.
 function removePoint(point) {
-  var points = findPoints(point), i;
-
+  var toNullify = findXDataPoints(point),
+      i = 0;
 
   // Series reference may disappear after point removal so save here
   var series = point.series,
-    xData = point.series.xData;
-  console.log(xData.length);
-  for (i=0; i<points.length; i++) {
-    var removed = new Date(xData[points[0]]).toISOString();
-    console.log("removed " + removed);
-    series.removePoint(points[0], true);
+      chart = point.series.chart,
+      xData = point.series.xData;
+  // Remove points
+  for (i=0; i<toNullify.length; i++) {
+    console.log("removed " + new Date(toNullify[i][1]).toISOString());
+    // Since we're modifying array always remove point at first index in list
+    series.removePoint(toNullify[0][0], false);
   }
-  series.chart.redraw();
-  console.log(xData.length);
+  // Add back null points to create gap
+  for (i=0; i<toNullify.length; i++) {
+    series.addPoint([toNullify[i][1], null], false);
+  }
+  chart.redraw();
 }
 
-// Return an array of indexes for points corresponding to this point in raw
-// series data, series.xData. This point may be a single point representing one
-// item in series.xData, or it may represent grouped data for many points in
-// series.xData.
-function findPoints(point) {
-  var points = [], i;
+// Return an array of 2-tuples for series.xData points corresponding to the
+// input point. This input point may be a single point representing one
+// item in series.xData or it may represent grouped data for many points in
+// series.xData. The 2-tuples in the returned array contain:
+// [xData index, xData value]
+function findXDataPoints(point) {
+  var found = [], i;
   if (! point.series.hasGroupedData) {
     for (i=0; i<point.series.xData.length; i++) {
       if (point.series.xData[i] === point.x) {
-        points.push(i);
+        found.push([i, point.series.xData[i]]);
         break;
       }
     }
   } else {
-    var end = point.x + (point.series.currentDataGrouping.count - 1) *
+    var end = point.x + point.series.currentDataGrouping.count *
               point.series.currentDataGrouping.unitRange;
     for (i=0; i<point.series.xData.length; i++) {
-      if (point.series.xData[i] >= point.x && point.series.xData[i] <= end) {
-        points.push(i);
+      if (point.series.xData[i] >= point.x && point.series.xData[i] < end) {
+        found.push([i, point.series.xData[i]]);
       }
     }
   }
-  return points;
+  return found;
 }
 
 function getSflData(cb) {

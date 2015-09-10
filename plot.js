@@ -8,6 +8,30 @@ $(function () {
         color: "white",
         font: "16px helvetica, sans-serif"
       }
+    },
+    plotOptions: {
+      series: {
+        events: {
+          click: function(e) {
+            removePoint(e.point);
+          }
+        },
+        cursor: "pointer"
+      }
+    },
+    title: {
+      margin: 0
+    },
+    credits: {
+      enabled: false
+    },
+    tooltip: {
+      valueDecimals: 2,
+      hideDelay: 500
+    },
+    chart: {
+      plotBorderWidth: 2,
+      spacingBottom: 3
     }
   });
 
@@ -84,9 +108,7 @@ function makeLineChart(title, yAxisTitle, series, divId, showLegend, showNav,
 
   var c = new Highcharts.StockChart({
     chart: {
-      renderTo: divId,
-      plotBorderWidth: 2,
-      spacingBottom: 3
+      renderTo: divId
     },
     legend: {
       enabled: showLegend
@@ -95,35 +117,17 @@ function makeLineChart(title, yAxisTitle, series, divId, showLegend, showNav,
     rangeSelector: {
       enabled: false
     },
-    scrollbar: {
-      enabled: false
-    },
-    plotOptions: {
-      series: {
-        events: {
-          click: function(e) {
-            removePoint(e.point);
-          }
-        },
-        cursor: "pointer"
-      }
-    },
     title: {
       text: title,
-      margin: 0
-    },
-    credits: {
-      enabled: false
-    },
-    tooltip: {
-      valueDecimals: 2,
-      hideDelay: 500
     },
     xAxis: xAxis,
     yAxis: {
       title: {
         text: yAxisTitle
       }
+    },
+    scrollbar: {
+      enabled: false
     },
     series: series
   });

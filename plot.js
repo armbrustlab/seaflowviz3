@@ -27,21 +27,25 @@ $(function () {
     },
     tooltip: {
       valueDecimals: 2,
-      hideDelay: 500
+      hideDelay: 100
     },
     chart: {
       plotBorderWidth: 2,
       spacingBottom: 3
+    },
+    yAxis: {
+      floor: 0
     }
   });
 
   // Make empty charts
-  chart.salinity = makeLineChart(null, "Salinity (psu)",
-                                 [{name: "Salinity", data: []}], "salinity",
-                                 false, false, false);
-  chart.temp = makeLineChart(null, "Temp (degC)",
-                             [{name: "Temperature", data: []}], "temp", false,
-                             false, false);
+  chart.ts = make2AxisLineChart(null, ["Salinity (psu)", "Temp (degC)"],
+                                [{name: "Temperature", data: []},
+                                 {name: "Salinity", yAxis: 1, data: []}],
+                                "ts", false, false, false);
+  chart.speed = makeLineChart(null, "Speed (knots)",
+                              [{name: "Speed", data: []}], "speed", false,
+                              false, false);
   chart.fsc_small = makeLineChart(null, "Forward scatter (a.u.)",
                                   makeEmptyPopSeries(), "size", true, false,
                                   false);
@@ -49,10 +53,11 @@ $(function () {
                                   makeEmptyPopSeries(), "abundance", true,
                                   true, true);
   getSflData(function(data) {
-    addToSingleSeries(chart.salinity, data, "salinity");
-    addToSingleSeries(chart.temp, data, "temp");
+    addToSingleSeries(chart.ts, data, "salinity", "Salinity");
+    addToSingleSeries(chart.ts, data, "temp", "Temperature");
+    addSpeed(chart.speed, data, sfl);
     addToNavigatorSeries(chart.abundance, data, "par");
-    addXPlotBands(chart.temp.xAxis[0], data, "par");
+    addXPlotBands(chart.ts.xAxis[0], data, "par");
     addXPlotBands(chart.fsc_small.xAxis[0], data, "par");
     addXPlotBands(chart.abundance.xAxis[0], data, "par");
     getStatData(function(data) {
@@ -75,6 +80,7 @@ for (var i = 0; i < popNames.length; i++) {
 // ISO String of most recent SFL date received
 var lastISO = null;
 var chart = Object.create(null);
+var sfl = [];
 
 function makeLineChart(title, yAxisTitle, series, divId, showLegend, showNav,
                        showXAxis) {
@@ -135,6 +141,91 @@ function makeLineChart(title, yAxisTitle, series, divId, showLegend, showNav,
   return c;
 }
 
+function make2AxisLineChart(title, yAxisTitles, series, divId, showLegend,
+                            showNav, showXAxis) {
+  var nav = {
+    enabled: false
+  };
+  if (showNav) {
+    nav = {
+      enabled: true,
+      adaptToUpdatedData: false,
+      series: {
+        data: []
+      }
+    };
+  }
+  var xAxis = {
+    type: "datetime"
+  };
+  if (! showXAxis) {
+    xAxis.labels = { enabled: false };
+    xAxis.lineWidth = 0;
+    xAxis.lineColor = "transparent";
+    xAxis.tickLength = 0;
+    xAxis.minorTickLength = 0;
+  }
+
+  var c = new Highcharts.StockChart({
+    chart: {
+      renderTo: divId,
+      events: {
+        load: function(e) {
+          for (var i=0; i<2; i++) {
+            this.yAxis[i].update({
+              title: {
+                style : {
+                  "color": this.series[i].color
+                }
+              },
+              labels: {
+                style: {
+                  "color": this.series[i].color
+                }
+              }
+            }, false);
+          }
+        }
+      }
+    },
+    legend: {
+      enabled: showLegend
+    },
+    navigator: nav,
+    rangeSelector: {
+      enabled: false
+    },
+    title: {
+      text: title,
+    },
+    xAxis: xAxis,
+    yAxis: [
+      {
+        title: {
+          text: yAxisTitles[0]
+        },
+      },
+      {
+        title: {
+          text: yAxisTitles[1]
+        },
+        gridLineWidth: 0,
+        opposite: false,
+        labels: {
+          align: "left",
+          x: 0
+        }
+      }
+    ],
+    scrollbar: {
+      enabled: false
+    },
+    series: series
+  });
+  c.showLoading();
+  return c;
+}
+
 function makeEmptyPopSeries() {
   var series = [],
       legendIndex = 0;
@@ -146,16 +237,39 @@ function makeEmptyPopSeries() {
 }
 
 function setExtremes(min, max) {
-  ["temp", "salinity", "fsc_small"].forEach(function(c) {
+  ["speed", "ts", "fsc_small"].forEach(function(c) {
     if (chart[c]) {
       chart[c].xAxis[0].setExtremes(min, max);
     }
   });
 }
 
-function addToSingleSeries(chart, data, key) {
+function addSpeed(chart, data, sfl) {
+  var last = null;
   data.forEach(function(d) {
-    chart.series[0].addPoint([d.date, d[key]], false);
+    if (sfl.length) {
+      last = sfl[sfl.length-1];
+      d.speed = geo2knots([last.lon, last.lat], [d.lon, d.lat],
+                          new Date(last.date), new Date(d.date));
+      chart.series[0].addPoint([d.date, d.speed], false);
+    }
+    sfl.push(d);
+  });
+  chart.hideLoading();
+  chart.redraw();
+}
+
+function addToSingleSeries(chart, data, key, seriesName) {
+  var series = chart.series[0];
+  if (seriesName) {
+    chart.series.forEach(function(s) {
+      if (s.name === seriesName) {
+        series = s;
+      }
+    });
+  }
+  data.forEach(function(d) {
+    series.addPoint([d.date, d[key]], false);
   });
   chart.hideLoading();
   chart.redraw();
@@ -394,4 +508,45 @@ function throttledcb(cb, delay, every) {
     }, delay);
   };
   return inner;
+}
+
+// Return the distance between two coordinates in km
+// http://stackoverflow.com/questions/365826/calculate-distance-between-2-gps-coordinates
+// by cletus.  Which answer was itself based on
+// http://www.movable-type.co.uk/scripts/latlong.html
+//
+// Args:
+//     lonlat1 and lonlat2 are two-item arrays of decimal degree
+//     latitude and longitude.
+function geo2km(lonlat1, lonlat2) {
+  if (! lonlat1 || ! lonlat2) {
+    return 0;
+  }
+  var toRad = function(degree) { return degree * (Math.PI / 180); };
+  var R = 6371; // km radius of Earth
+  var dLat = toRad(lonlat2[1] - lonlat1[1]);
+  var dLon = toRad(lonlat2[0] - lonlat1[0]);
+  var lat1 = toRad(lonlat1[1]);
+  var lat2 = toRad(lonlat2[1]);
+
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  var d = R * c;
+  return d;
+}
+
+// Return speed in knots traveling between lonlat1 and lonlat2 during time
+// interval t1 to t2.
+//
+// Args:
+//     lonlat1 and lonlat2 are two-item arrays of decimal degree
+//     latitude and longitude.
+//
+//     t1 and t2 are Date objects corresponding to coordinates.
+function geo2knots(lonlat1, lonlat2, t1, t2) {
+  kmPerKnot = 1.852;  // 1 knot = 1.852 km/h
+  km = geo2km(lonlat1, lonlat2);
+  hours = (t2.getTime() - t1.getTime()) / 1000 / 60 / 60;
+  return km / hours / kmPerKnot;
 }

@@ -69,21 +69,6 @@ function Charts(events) {
 
   function initCharts() {
     // Make empty charts
-    if (self.charts.ts) {
-      self.charts.ts.destroy();
-    }
-    self.charts.ts = makeLineChart({
-      title: null,
-      yAxisTitle: ["Salinity", "Temp"],
-      series: [{name: "Salinity", data: []}, {name: "Temperature", data: []}],
-      seriesValueSuffix: [" psu", " C"],
-      div: "ts",
-      showLegend: false,
-      showNavigator: false,
-      showXAxis: false,
-      yTickPixelInterval: 30
-    });
-
     if (self.charts.speed) {
       self.charts.speed.destroy();
     }
@@ -96,6 +81,22 @@ function Charts(events) {
       showLegend: false,
       showNavigator: false,
       showXAxis: false,
+      yTickPixelInterval: 30,
+      spacingLeft: 35
+    });
+
+    if (self.charts.ts) {
+      self.charts.ts.destroy();
+    }
+    self.charts.ts = makeLineChart({
+      title: null,
+      yAxisTitle: ["Salinity", "Temp"],
+      series: [{name: "Salinity", data: []}, {name: "Temperature", data: []}],
+      seriesValueSuffix: [" psu", " C"],
+      div: "ts",
+      showLegend: false,
+      showNavigator: false,
+      showXAxis: true,
       yTickPixelInterval: 30
     });
 
@@ -182,7 +183,9 @@ options object:
   setExtremes:
     Callback to handle setExtremes event.
     http://api.highcharts.com/highcharts#xAxis.events.setExtremes
-
+  spacingLeft:
+    Pixels to pad left. Necessary to match alignment of left border of
+    charts with left y-axis label and charts without left y-axis label.
 Returns:
  Highcharts.Chart object
 */
@@ -278,7 +281,9 @@ function makeLineChart(options) {
     }
   } else {
     // Create left spacing to match charts with left y-axis
-    chart.spacingLeft = 35;
+    if (options.spacingLeft) {
+      chart.spacingLeft = options.spacingLeft;
+    }
 
     // Support one item array for yAxisTitle
     if ($.isArray(options.yAxisTitle)) {

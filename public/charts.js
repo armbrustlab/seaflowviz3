@@ -9,6 +9,7 @@ function Charts(events) {
 
   // Register event handlers here
   $(self.events).on("newsfldata", function(event, data) {
+    console.log("newsfldata");
     addToSingleSeries(self.charts.speed, data.new, "speed", "Speed");
     addToSingleSeries(self.charts.ts, data.new, "salinity", "Salinity");
     addToSingleSeries(self.charts.ts, data.new, "temp", "Temperature");
@@ -19,6 +20,7 @@ function Charts(events) {
     addXPlotBands(self.charts.abundance.xAxis[0], data.all, "par");
   });
   $(self.events).on("newstatdata", function(event, data) {
+    console.log("newstatdata");
     addToPopSeries(self.charts.fsc_small, data.new, "fsc_small");
     addToPopSeries(self.charts.abundance, data.new, "abundance");
   });
@@ -26,6 +28,7 @@ function Charts(events) {
     addToSingleSeries(self.charts.cstar, data.new, "attenuation", "Attenuation");
   });
   $(self.events).on("newdaterange", function(event, data) {
+    console.log("newdaterange");
     Object.keys(self.charts).forEach(function(c) {
       if (self.charts[c] && self.charts[c] !== data.triggerChart) {
         setTimeout(function() {
@@ -34,13 +37,20 @@ function Charts(events) {
       }
     });
   });
+  $(self.events).on("newcruise", function(event, data) {
+    console.log("newcruise");
+    initCharts();  // clear charts
+  });
 
   // Define a handler for setExtreme x-axis events
   function setExtremesHandler(e) {
+    console.log("setExtremesHandler: " + isoext(e));
     if (e.trigger === "navigator") {
+      console.log("  navigator:");
       navigatorNewDateRange(e.min, e.max, this.chart);
     } else if (e.trigger === "updatedData") {
       var ext = this.chart.xAxis[0].getExtremes();
+      console.log("  updatedData: " + isoext(ext));
       $(self.events).triggerHandler("newdaterange", {
         min: ext.min,
         max: ext.max,
@@ -57,62 +67,82 @@ function Charts(events) {
     });
   }, 200);
 
-  // Make empty charts
-  self.charts.ts = makeLineChart({
-    title: null,
-    yAxisTitle: ["Salinity", "Temp"],
-    series: [{name: "Salinity", data: []}, {name: "Temperature", data: []}],
-    seriesValueSuffix: [" psu", " C"],
-    div: "ts",
-    showLegend: false,
-    showNavigator: false,
-    showXAxis: false,
-    yTickPixelInterval: 30
-  });
-  self.charts.speed = makeLineChart({
-    title: null,
-    yAxisTitle: "Speed",
-    series: [{name: "Speed", data: []}],
-    seriesValueSuffix: " knots",
-    div: "speed",
-    showLegend: false,
-    showNavigator: false,
-    showXAxis: false,
-    yTickPixelInterval: 30
-  });
-  self.charts.fsc_small = makeLineChart({
-    title: null,
-    yAxisTitle: "Forward scatter",
-    series: makeEmptyPopSeries(),
-    seriesValueSuffix: " a.u.",
-    div: "size",
-    showLegend: true,
-    showNavigator: false,
-    showXAxis: false
-  });
-  self.charts.abundance = makeLineChart({
-    title: null,
-    yAxisTitle: "Abundance",
-    series: makeEmptyPopSeries(),
-    seriesValueSuffix: " 10^6 cells/L",
-    div: "abundance",
-    showLegend: true,
-    showNavigator: true,
-    showXAxis: true,
-    setExtremes: setExtremesHandler
-  });
+  function initCharts() {
+    // Make empty charts
+    if (self.charts.ts) {
+      self.charts.ts.destroy();
+    }
+    self.charts.ts = makeLineChart({
+      title: null,
+      yAxisTitle: ["Salinity", "Temp"],
+      series: [{name: "Salinity", data: []}, {name: "Temperature", data: []}],
+      seriesValueSuffix: [" psu", " C"],
+      div: "ts",
+      showLegend: false,
+      showNavigator: false,
+      showXAxis: false,
+      yTickPixelInterval: 30
+    });
 
-  self.charts.cstar = makeLineChart({
-    title: null,
-    yAxisTitle: "Attenuation",
-    series: [{name: "Attenuation", data: []}],
-    seriesValueSuffix: " m-1",
-    div: "cstar",
-    showLegend: false,
-    showNavigator: false,
-    showXAxis: false,
-    yTickPixelInterval: 30
-  });
+    if (self.charts.speed) {
+      self.charts.speed.destroy();
+    }
+    self.charts.speed = makeLineChart({
+      title: null,
+      yAxisTitle: "Speed",
+      series: [{name: "Speed", data: []}],
+      seriesValueSuffix: " knots",
+      div: "speed",
+      showLegend: false,
+      showNavigator: false,
+      showXAxis: false,
+      yTickPixelInterval: 30
+    });
+
+    if (self.charts.fsc_small) {
+      self.charts.fsc_small.destroy();
+    }
+    self.charts.fsc_small = makeLineChart({
+      title: null,
+      yAxisTitle: "Forward scatter",
+      series: makeEmptyPopSeries(),
+      seriesValueSuffix: " a.u.",
+      div: "size",
+      showLegend: true,
+      showNavigator: false,
+      showXAxis: false
+    });
+
+    if (self.charts.abundance) {
+      self.charts.abundance.destroy();
+    }
+    self.charts.abundance = makeLineChart({
+      title: null,
+      yAxisTitle: "Abundance",
+      series: makeEmptyPopSeries(),
+      seriesValueSuffix: " 10^6 cells/L",
+      div: "abundance",
+      showLegend: true,
+      showNavigator: true,
+      showXAxis: true,
+      setExtremes: setExtremesHandler
+    });
+
+    if (self.charts.cstar) {
+      self.charts.cstar.destroy();
+    }
+    /*self.charts.cstar = makeLineChart({
+      title: null,
+      yAxisTitle: "Attenuation",
+      series: [{name: "Attenuation", data: []}],
+      seriesValueSuffix: " m-1",
+      div: "cstar",
+      showLegend: false,
+      showNavigator: false,
+      showXAxis: false,
+      yTickPixelInterval: 30
+    });*/
+  }
 }
 
 /*
@@ -363,10 +393,6 @@ for (var i = 0; i < popNames.length; i++) {
   popLookup[popNames[i]] = popLabels[i];
   popLookup[popLabels[i]] = popNames[i];
 }
-// ISO String of most recent SFL date received
-
-var chart = Object.create(null);
-var sfl = [];
 
 
 function makeEmptyPopSeries() {

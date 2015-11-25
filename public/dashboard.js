@@ -7,6 +7,7 @@ function Dashboard(events) {
   self.events = events;  // will register jQuery events
   self.latest = 1437783583000;    // Date to start pulling data from
   self.increment = 180000;  // 3 minutes in ms
+  self.cruise = "SCOPE_1";
 
   self.data = {
     sfl: [],
@@ -19,7 +20,7 @@ function Dashboard(events) {
   $(self.events).on("newsfldata", function(event, data) {
     self.getSQLShareData({
       cur: self.data.stat,
-      from: self.latest,
+      //from: self.latest,
       //to: self.latest + self.increment,
       table: "SeaFlow Simple Pop",
       event: "newstatdata",
@@ -27,10 +28,10 @@ function Dashboard(events) {
     });
   });
   // CSTAR
-  $(self.events).on("newstatdata", function(event, data) {
+  /*$(self.events).on("newstatdata", function(event, data) {
     self.getSQLShareData({
       cur: self.data.cstar,
-      from: self.latest,
+      //from: self.latest,
       //to: self.latest + self.increment,
       table: "SeaFlow CSTAR Data",
       event: "newcstardata",
@@ -40,13 +41,12 @@ function Dashboard(events) {
         self.increment = 180000;
       }
     });
-  });
-
+  });*/
 
   self.pollOnce = function() {
     self.getSQLShareData({
       cur: self.data.sfl,
-      from: self.latest,
+      //from: self.latest,
       //to: self.latest + self.increment,
       table: "SeaFlow Sfl Data",
       event: "newsfldata",
@@ -56,6 +56,13 @@ function Dashboard(events) {
       }
     });
   };
+
+  $(self.events).on("newcruise", function(event, data) {
+    self.cruise = data.cruise;
+    console.log("new cruise is " + data.cruise);
+    self.resetData();
+    self.pollOnce();
+  });
 
   self.poll = function() {
     setInterval(self.pollOnce, 5000);
@@ -82,8 +89,9 @@ function Dashboard(events) {
     }
     var query = "SELECT ";
     query += o.select + " FROM [seaflow.viz@gmail.com].[" + o.table + "] ";
+    query += "WHERE cruise = '" + self.cruise + "' ";
     if (o.from) {
-      query += "WHERE [time] >= '" + new Date(o.from).toISOString() + "' ";
+      query += "AND [time] >= '" + new Date(o.from).toISOString() + "' ";
       if (o.to) {
         query += "AND [time] < '" + new Date(o.to).toISOString() + "' ";
       }
@@ -99,6 +107,14 @@ function Dashboard(events) {
       }
       $(self.events).triggerHandler(o.event, { all: o.cur, new: data });
     });
+  };
+
+  self.resetData = function() {
+    self.data = {
+      sfl: [],
+      stat: [],
+      cstar: []
+    };
   };
 }
 
@@ -223,8 +239,9 @@ function executeSqlQuery(query, cb) {
       alert("error errorThrow:" + et);
     },
     success : function(jsonp) {
-      /*console.log("SQL query took " +
-                  (((new Date().getTime()) - t0.getTime())/1000) + " sec");*/
+      console.log("SQL query took " +
+                  (((new Date().getTime()) - t0.getTime())/1000) + " sec");
+      console.log("Query returned " + jsonp.data.length + " data points");
       cb(jsonp);
     }
   });

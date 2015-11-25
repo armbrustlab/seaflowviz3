@@ -4,11 +4,14 @@ $(function () {
   var charts = new Charts(events);
   var dash = new Dashboard(events);
 
-  $("#pull").on("click", function() { console.log("pull"); dash.pollOnce(); });
-  $("#plus").on("click", function() {
-    dash.increment += 180000;
-    console.log(new Date(dash.latest + dash.increment).toISOString());
+  $("div.dropdown li a").on("click", function() {
+    var cruise = $(this).text();
+    $(events).triggerHandler("newcruise", {cruise: cruise});
+    $(".btn:first-child").html(cruise + " <span class='caret'></span>");
   });
+
+  $(events).triggerHandler("newcruise", {cruise: "SCOPE_6"});
+
   window.charts = charts;
   window.map = map;
   window.dash = dash;

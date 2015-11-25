@@ -31,6 +31,11 @@ function SeaflowMap(div, events) {
   $(self.events).on("newsfldata", function(event, data) {
     self.addLocs(data.new);
   });
+  $(self.events).on("newcruise", function(event, data) {
+    self.locs = [];
+    self.update();
+    self.zoomed = false;
+  });
 
   self.updateDateRange = function(minDate, maxDate) {
     self.min = minDate;

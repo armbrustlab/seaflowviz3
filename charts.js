@@ -111,7 +111,8 @@ function Charts(events) {
       div: "size",
       showLegend: true,
       showNavigator: false,
-      showXAxis: false
+      showXAxis: false,
+      logY: true
     });
 
     if (self.charts.abundance) {
@@ -186,6 +187,7 @@ options object:
   spacingLeft:
     Pixels to pad left. Necessary to match alignment of left border of
     charts with left y-axis label and charts without left y-axis label.
+  logY: logarithmic Y-axis?
 Returns:
  Highcharts.Chart object
 */
@@ -297,6 +299,10 @@ function makeLineChart(options) {
     if (options.yTickPixelInterval) {
       yAxis.tickPixelInterval = options.yTickPixelInterval;
     }
+  }
+
+  if (options.logY) {
+    yAxis.type = "logarithmic";
   }
 
   if (options.seriesValueSuffix) {

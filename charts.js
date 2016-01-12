@@ -9,7 +9,7 @@ function Charts(events) {
 
   // Register event handlers here
   $(self.events).on("newsfldata", function(event, data) {
-    console.log("newsfldata");
+    //console.log("newsfldata");
     addToSingleSeries(self.charts.speed, data.new, "speed", "Speed");
     addToSingleSeries(self.charts.ts, data.new, "salinity", "Salinity");
     addToSingleSeries(self.charts.ts, data.new, "temp", "Temperature");
@@ -20,7 +20,7 @@ function Charts(events) {
     addXPlotBands(self.charts.abundance.xAxis[0], data.all, "par");
   });
   $(self.events).on("newstatdata", function(event, data) {
-    console.log("newstatdata");
+    //console.log("newstatdata");
     addToPopSeries(self.charts.fsc_small, data.new, "fsc_small");
     addToPopSeries(self.charts.abundance, data.new, "abundance");
   });
@@ -28,7 +28,7 @@ function Charts(events) {
     addToSingleSeries(self.charts.cstar, data.new, "attenuation", "Attenuation");
   });
   $(self.events).on("newdaterange", function(event, data) {
-    console.log("newdaterange");
+    //console.log("newdaterange");
     Object.keys(self.charts).forEach(function(c) {
       if (self.charts[c] && self.charts[c] !== data.triggerChart) {
         setTimeout(function() {
@@ -38,15 +38,15 @@ function Charts(events) {
     });
   });
   $(self.events).on("newcruise", function(event, data) {
-    console.log("newcruise");
+    //console.log("newcruise");
     initCharts();  // clear charts
   });
 
   // Define a handler for setExtreme x-axis events
   function setExtremesHandler(e) {
-    console.log("setExtremesHandler: " + isoext(e));
+    //console.log("setExtremesHandler: " + isoext(e));
     if (e.trigger === "navigator") {
-      console.log("  navigator:");
+      //console.log("  navigator:");
       navigatorNewDateRange(e.min, e.max, this.chart);
     } else if (e.trigger === "updatedData") {
       var ext = this.chart.xAxis[0].getExtremes();
@@ -487,10 +487,13 @@ function addXPlotBands(axis, data, key) {
 
 function addToNavigatorSeries(chart, data, key) {
   var nav = getNavigator(chart),
-      plotExtremes = chart.xAxis[0].getExtremes(),
-      navExtremes = chart.xAxis[1].getExtremes(),
-      pinRight = false,
-      selectAll = false;
+    plotExtremes = chart.xAxis[0].getExtremes(),
+    navExtremes = chart.xAxis[1].getExtremes(),
+    pinRight = false,
+    selectAll = false;
+
+  //console.log("plotExtremes=" + JSON.stringify(plotExtremes));
+  //console.log("navExtremes=" + JSON.stringify(navExtremes));
 
   if (plotExtremes.max === undefined) {
     // No plot region has been selected. Select whole nav region after adding
@@ -512,6 +515,9 @@ function addToNavigatorSeries(chart, data, key) {
   plotExtremes = chart.xAxis[0].getExtremes();
   navExtremes = chart.xAxis[1].getExtremes();
 
+  //console.log("plotExtremes=" + JSON.stringify(plotExtremes));
+  //console.log("navExtremes=" + JSON.stringify(navExtremes));
+
   if (selectAll) {
     // Select all data covered by navigator series
     chart.xAxis[0].setExtremes(navExtremes.min, navExtremes.max);
@@ -519,6 +525,10 @@ function addToNavigatorSeries(chart, data, key) {
     // Increase right-most part of selection to include latest data
     chart.xAxis[0].setExtremes(plotExtremes.min, navExtremes.max);
   }
+
+  //console.log("selectAll=" + selectAll + ", pinRight=" + pinRight);
+  //console.log("xAxis extremes=" + JSON.stringify(chart.xAxis[0].getExtremes()));
+
   chart.redraw();
 }
 

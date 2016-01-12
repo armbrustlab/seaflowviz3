@@ -3,9 +3,9 @@
 function Dashboard(events) {
   var self = this;
 
-  self.refreshTimeMilli = 3 * 60 * 1000; // every 3 minute
+  self.refreshTimeMilli = 2 * 60 * 1000; // every 3 minute
   self.events = events;  // will register jQuery events
-  self.latest = 1437783583000;    // Date to start pulling data from
+  self.latest = 0;  // Date to start pulling data from
   self.increment = 180000;  // 3 minutes in ms
   self.cruise = "realtime";
   self.pollInterval = null;
@@ -47,8 +47,34 @@ function Dashboard(events) {
     }
   };
 
+  // ****************************
   // Register event handlers here
-  // Population
+  // ****************************
+
+  // New cruise event
+  // Begin data polling, which usually leads to asking for new SFL data
+  $(self.events).on("newcruise", function(event, data) {
+    // Convert UI cruise name to database cruise name
+    self.cruise = self.cruiseFieldLookup(data.cruise);
+    console.log("new cruise is " + data.cruise + " => " + self.cruise);
+
+    // Clear any existing data polling
+    clearInterval(self.pollInterval);
+    self.pollInterval = null;
+
+    // Reset existing state
+    self.resetData();
+
+    // Get new data
+    if (self.cruise === "realtime") {
+      self.poll();
+    } else {
+      self.pollOnce();
+    }
+  });
+
+  // New SFL data event
+  // Chain into asking for new population data
   $(self.events).on("newsfldata", function(event, data) {
     self.getSQLShareData({
       cur: self.data.stat,
@@ -59,7 +85,9 @@ function Dashboard(events) {
       recordHandler: sqlshareStatHandler
     });
   });
-  // CSTAR
+
+  // New population data event
+  // Chain into asking for CSTAR data
   /*$(self.events).on("newstatdata", function(event, data) {
     self.getSQLShareData({
       cur: self.data.cstar,
@@ -75,6 +103,13 @@ function Dashboard(events) {
     });
   });*/
 
+  // **************************
+  // Database polling functions
+  // **************************
+
+  // Poll for new data once.
+  // Starts with SFL data which can lead to a chain of data requests,
+  // e.g. stat.csv population data.
   self.pollOnce = function() {
     self.getSQLShareData({
       cur: self.data.sfl,
@@ -89,22 +124,7 @@ function Dashboard(events) {
     });
   };
 
-  $(self.events).on("newcruise", function(event, data) {
-    self.cruise = self.cruiseFieldLookup(data.cruise);
-    console.log("new cruise is " + data.cruise + " => " + self.cruise);
-    self.resetData();
-    if (self.cruise === "realtime") {
-      self.poll();
-    } else {
-      // Clear any existing data polling if previous cruise was realtime
-      if (self.pollInterval) {
-        clearInterval(self.pollInterval);
-        self.pollInterval = null;
-      }
-      self.pollOnce();
-    }
-  });
-
+  // Poll for new data at regular intervals
   self.poll = function() {
     self.pollOnce();  // Get data now
     // Setup to get data at intervals in the future
@@ -126,9 +146,11 @@ function Dashboard(events) {
   //     This function will run immediately before the event is triggered.
   self.getSQLShareData = function(o) {
     o.select = o.select ? o.select : "*";
-    if (o.from === "undefined" && o.cur.length) {
-      o.from = _.last(_.pluck(cur, "date"));
+
+    if (o.from === undefined && o.cur.length) {
+      o.from = _.last(_.pluck(o.cur, "date"));
     }
+
     var query = "SELECT ";
     query += o.select + " FROM [seaflow.viz@gmail.com].[" + o.table + "] ";
     query += "WHERE cruise = '" + self.cruise + "' ";
@@ -139,9 +161,10 @@ function Dashboard(events) {
       }
     }
     query += "ORDER BY [time] ASC";
+
     executeSqlQuery(query, function(jsonp) {
       var data = transformData(jsonp, o.recordHandler);
-      fillGaps(o.cur, data);  // fill gaps in record will null objects
+      fillGaps(o.cur, data);  // Fill gaps in record will null objects
       o.cur.push.apply(o.cur, data);  // Add new data to cur
       if ($.isFunction(o.extra)) {
         // Run user supplied extra function
@@ -157,11 +180,12 @@ function Dashboard(events) {
       stat: [],
       cstar: []
     };
+    self.latest = 0;
   };
 }
 
 // Turn jsonp data from SQL share query result into an arrays of JSON objects
-// that can be easily fed to crossfilter/dc.js
+// that can be easily fed to visualizations
 function transformData(jsonp, sqlshareRecordHandler) {
   if (jsonp.header.length < 2) {
     alert('Query ' + data.sql + ' returned ' + jsonp.header.length +

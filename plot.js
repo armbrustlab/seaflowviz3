@@ -10,7 +10,7 @@ $(function () {
     $(".btn:first-child").html(cruise + " <span class='caret'></span>");
   });
 
-  $(events).triggerHandler("newcruise", {cruise: "2015-07-25 - 2015-08-05"});
+  $(events).triggerHandler("newcruise", {cruise: "realtime"});
 
   window.charts = charts;
   window.map = map;

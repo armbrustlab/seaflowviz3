@@ -3,16 +3,48 @@
 function Dashboard(events) {
   var self = this;
 
-  self.refreshTimeMilli = 1 * 60 * 1000; // every 1 minute
+  self.refreshTimeMilli = 3 * 60 * 1000; // every 3 minute
   self.events = events;  // will register jQuery events
   self.latest = 1437783583000;    // Date to start pulling data from
   self.increment = 180000;  // 3 minutes in ms
-  self.cruise = "SCOPE_1";
+  self.cruise = "realtime";
+  self.pollInterval = null;
 
   self.data = {
     sfl: [],
     stat: [],
     cstar: []
+  };
+
+  // Convert dropdown menu cruise name value to database cruise field name
+  self.cruiseFieldLookup = function(cruise) {
+    var lookup = {
+      "2014-12-08 - 2014-12-12": "SCOPE_1",
+      "2015-03-21 - 2015-03-29": "SCOPE_2",
+      "2015-05-22 - 2015-05-26": "SCOPE_3",
+      "2015-06-18 - 2015-06-19": "SCOPE_4",
+      "2015-07-18 - 2015-07-22": "SCOPE_5",
+      "2015-07-25 - 2015-08-05": "SCOPE_6",
+      "realtime": "realtime"
+    };
+    return lookup[cruise];
+  };
+
+  // Decide which table to use for SFL data
+  self.SflTableLookup = function(cruise) {
+    if (cruise === "realtime") {
+      return "SeaFlow Sfl Data Realtime";
+    } else {
+      return "SeaFlow Sfl Data Archive";
+    }
+  };
+
+  self.StatTableLookup = function(cruise) {
+    if (cruise === "realtime") {
+      return "SeaFlow Simple Pop Realtime";
+    } else {
+      return "SeaFlow Simple Pop Archive";
+    }
   };
 
   // Register event handlers here
@@ -22,7 +54,7 @@ function Dashboard(events) {
       cur: self.data.stat,
       //from: self.latest,
       //to: self.latest + self.increment,
-      table: "SeaFlow Simple Pop",
+      table: self.StatTableLookup(self.cruise),
       event: "newstatdata",
       recordHandler: sqlshareStatHandler
     });
@@ -48,7 +80,7 @@ function Dashboard(events) {
       cur: self.data.sfl,
       //from: self.latest,
       //to: self.latest + self.increment,
-      table: "SeaFlow Sfl Data",
+      table: self.SflTableLookup(self.cruise),
       event: "newsfldata",
       recordHandler: sqlshareSflHandler,
       extra: function(allData, newData) {
@@ -58,23 +90,25 @@ function Dashboard(events) {
   };
 
   $(self.events).on("newcruise", function(event, data) {
-    var lookup = {
-      "2014-12-08 - 2014-12-12": "SCOPE_1",
-      "2015-03-21 - 2015-03-29": "SCOPE_2",
-      "2015-05-22 - 2015-05-26": "SCOPE_3",
-      "2015-06-18 - 2015-06-19": "SCOPE_4",
-      "2015-07-18 - 2015-07-22": "SCOPE_5",
-      "2015-07-25 - 2015-08-05": "SCOPE_6"
-    };
-    self.cruise = lookup[data.cruise];
-    console.log("new cruise is " + data.cruise);
+    self.cruise = self.cruiseFieldLookup(data.cruise);
+    console.log("new cruise is " + data.cruise + " => " + self.cruise);
     self.resetData();
-    self.pollOnce();
+    if (self.cruise === "realtime") {
+      self.poll();
+    } else {
+      // Clear any existing data polling if previous cruise was realtime
+      if (self.pollInterval) {
+        clearInterval(self.pollInterval);
+        self.pollInterval = null;
+      }
+      self.pollOnce();
+    }
   });
 
   self.poll = function() {
-    setInterval(self.pollOnce, 5000);
-    //setInterval(self.pollOnce, self.refreshTimeMilli);
+    self.pollOnce();  // Get data now
+    // Setup to get data at intervals in the future
+    self.pollInterval = setInterval(self.pollOnce, self.refreshTimeMilli);
   };
 
   // options object o:

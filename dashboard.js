@@ -170,7 +170,10 @@ function Dashboard(events) {
         // Run user supplied extra function
         o.extra(o.cur, data);
       }
-      $(self.events).triggerHandler(o.event, { all: o.cur, new: data });
+      if (data.length) {
+        console.log("latest=" + new Date(_.last(_.pluck(data, "date"))).toISOString());
+        $(self.events).triggerHandler(o.event, { all: o.cur, new: data });
+      }
     });
   };
 

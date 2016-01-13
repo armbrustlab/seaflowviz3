@@ -28,7 +28,7 @@ function Charts(events) {
     addToSingleSeries(self.charts.cstar, data.new, "attenuation", "Attenuation");
   });
   $(self.events).on("newdaterange", function(event, data) {
-    //console.log("newdaterange");
+    //console.log("newdaterange: " + isoext(data));
     Object.keys(self.charts).forEach(function(c) {
       if (self.charts[c] && self.charts[c] !== data.triggerChart) {
         setTimeout(function() {
@@ -50,7 +50,7 @@ function Charts(events) {
       navigatorNewDateRange(e.min, e.max, this.chart);
     } else if (e.trigger === "updatedData") {
       var ext = this.chart.xAxis[0].getExtremes();
-      console.log("  updatedData: " + isoext(ext));
+      //console.log("  updatedData: " + isoext(ext));
       $(self.events).triggerHandler("newdaterange", {
         min: ext.min,
         max: ext.max,
@@ -455,6 +455,7 @@ function addToPopSeries(chart, data, key) {
     });
   });
   chart.hideLoading();
+
   // This redraw fires setExtremes with trigger === "updatedData" if the max
   // of the extremes range was already pinned to the latest date. The max date
   // of the extremes will be reset to match new latest date.
@@ -490,10 +491,8 @@ function addToNavigatorSeries(chart, data, key) {
     plotExtremes = chart.xAxis[0].getExtremes(),
     navExtremes = chart.xAxis[1].getExtremes(),
     pinRight = false,
-    selectAll = false;
-
-  //console.log("plotExtremes=" + JSON.stringify(plotExtremes));
-  //console.log("navExtremes=" + JSON.stringify(navExtremes));
+    selectAll = false,
+    latest = null;
 
   if (plotExtremes.max === undefined) {
     // No plot region has been selected. Select whole nav region after adding
@@ -508,26 +507,18 @@ function addToNavigatorSeries(chart, data, key) {
       nav.addPoint([d.date, d[key]], false);
     });
   }
-  // necessary not only for graphic redraw but also to set new extremes if new
-  // data
-  chart.redraw();
+  latest = _.last(_.pluck(data, "date"));  // Get latest timestamp
 
   plotExtremes = chart.xAxis[0].getExtremes();
   navExtremes = chart.xAxis[1].getExtremes();
 
-  //console.log("plotExtremes=" + JSON.stringify(plotExtremes));
-  //console.log("navExtremes=" + JSON.stringify(navExtremes));
-
   if (selectAll) {
     // Select all data covered by navigator series
-    chart.xAxis[0].setExtremes(navExtremes.min, navExtremes.max);
+    chart.xAxis[0].setExtremes(navExtremes.min, latest);
   } else if (pinRight) {
     // Increase right-most part of selection to include latest data
-    chart.xAxis[0].setExtremes(plotExtremes.min, navExtremes.max);
+    chart.xAxis[0].setExtremes(plotExtremes.min, latest);
   }
-
-  //console.log("selectAll=" + selectAll + ", pinRight=" + pinRight);
-  //console.log("xAxis extremes=" + JSON.stringify(chart.xAxis[0].getExtremes()));
 
   chart.redraw();
 }

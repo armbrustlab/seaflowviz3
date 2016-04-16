@@ -271,10 +271,21 @@ function sqlshareStatHandler(d, idx, data) {
         fsc_small: d[idx.fsc_small],
         abundance: d[idx.abundance]
       };
+      // Make sure a Prochlorococcus / Synechococcus ratio is present
+      if (prev.prosyn === null) {
+        if (prev.pops.Prochlorococcus !== undefined &&
+            prev.pops.Synechococcus !== undefined &&
+            prev.pops.Prochlorococcus.abundance &&
+            prev.pops.Synechococcus.abundance) {
+          prev.prosyn = prev.pops.Prochlorococcus.abundance / prev.pops.Synechococcus.abundance;
+        }
+      }
+
     } else {
       var newData = {
         date: curTime,
         iso8601: iso(curTime),
+        prosyn: null,
         pops: {}
       };
       newData.pops[popLookup[d[idx.pop]]] = {

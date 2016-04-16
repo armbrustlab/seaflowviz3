@@ -11,8 +11,8 @@ function Charts(events) {
   $(self.events).on("newsfldata", function(event, data) {
     //console.log("newsfldata");
     addToSingleSeries(self.charts.speed, data.new, "speed", "Speed");
-    addToSingleSeries(self.charts.ts, data.new, "salinity", "Salinity");
-    addToSingleSeries(self.charts.ts, data.new, "temp", "Temperature");
+    //addToSingleSeries(self.charts.ts, data.new, "salinity", "Salinity");
+    //addToSingleSeries(self.charts.ts, data.new, "temp", "Temperature");
 
     addToNavigatorSeries(self.charts.abundance, data.new, "par");
 
@@ -23,6 +23,7 @@ function Charts(events) {
     //console.log("newstatdata");
     addToPopSeries(self.charts.fsc_small, data.new, "fsc_small");
     addToPopSeries(self.charts.abundance, data.new, "abundance");
+    addToSingleSeries(self.charts.prosyn, data.new, "prosyn", "ProSyn");
   });
   $(self.events).on("newcstardata", function(event, data) {
     addToSingleSeries(self.charts.cstar, data.new, "attenuation", "Attenuation");
@@ -88,7 +89,7 @@ function Charts(events) {
     if (self.charts.ts) {
       self.charts.ts.destroy();
     }
-    self.charts.ts = makeLineChart({
+    /*self.charts.ts = makeLineChart({
       title: null,
       yAxisTitle: ["Salinity", "Temp"],
       series: [{name: "Salinity", data: []}, {name: "Temperature", data: []}],
@@ -98,6 +99,22 @@ function Charts(events) {
       showNavigator: false,
       showXAxis: true,
       yTickPixelInterval: 30
+    });*/
+
+    if (self.charts.prosyn) {
+      self.charts.prosyn.destroy();
+    }
+    self.charts.prosyn = makeLineChart({
+      title: null,
+      yAxisTitle: "Pro/Syn ratio",
+      series: [{name: "ProSyn", data: []}],
+      seriesValueSuffix: "",
+      div: "prosyn",
+      showLegend: false,
+      showNavigator: false,
+      showXAxis: false,
+      yTickPixelInterval: 30,
+      spacingLeft: 35
     });
 
     if (self.charts.fsc_small) {
@@ -450,8 +467,10 @@ function addToPopSeries(chart, data, key) {
   });
   data.forEach(function(d) {
     _.keys(d.pops).forEach(function(p) {
-      subd = d.pops[p];
-      series[p].addPoint([d.date, subd[key]], false, false, false);
+      if (series[p]) {
+        subd = d.pops[p];
+        series[p].addPoint([d.date, subd[key]], false, false, false);
+      }
     });
   });
   chart.hideLoading();

@@ -22,7 +22,7 @@ function SeaflowMap(div, events) {
     separator: "   ",
     lngFormatter: function(lng) { return "Lon: " + lng.toFixed(5); },
     latFormatter: function(lat) { return "Lat: " + lat.toFixed(5); }
-  }).addTo(self.cruiseMap);  // add mouse coorinate display
+  }).addTo(self.cruiseMap);  // add mouse coordinate display
 
   // Register event handlers here
   $(self.events).on("newdaterange", function(event, data) {
@@ -45,8 +45,10 @@ function SeaflowMap(div, events) {
 
   self.addLocs = function(newLocs) {
     newLocs.forEach(function(loc) {
-      loc.latLng = new L.latLng(loc.lat, loc.lon);
-      self.locs.push(loc);
+      if ($.isNumeric(loc.lat) && $.isNumeric(loc.lon)) {
+        loc.latLng = new L.latLng(loc.lat, loc.lon);
+        self.locs.push(loc);
+      }
     });
     self.update();
   };
@@ -58,9 +60,6 @@ function SeaflowMap(div, events) {
     var allLatLngs = [];
     var selectedLatLngs = [];
     self.locs.forEach(function(doc) {
-      if (doc.lat === null) {
-        return;
-      }
       allLatLngs.push(doc.latLng);
       if (self.min === null && self.max === null) {
         // All points selected if no date range has been set

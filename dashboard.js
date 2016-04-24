@@ -22,7 +22,6 @@ function Dashboard(events) {
       "2014-12-08 - 2014-12-12": "SCOPE_1",
       "2015-03-21 - 2015-03-29": "SCOPE_2",
       "2015-05-22 - 2015-05-26": "SCOPE_3",
-      "2015-06-18 - 2015-06-19": "SCOPE_4",
       "2015-07-18 - 2015-07-22": "SCOPE_5",
       "2015-07-25 - 2015-08-05": "SCOPE_6",
       "realtime": "realtime"
@@ -131,6 +130,7 @@ function Dashboard(events) {
     if (o.from === undefined && o.cur.length) {
       o.from = _.last(_.pluck(o.cur, "date"));
     }
+    console.log("getData for " + o.table + " " + self.cruise);
     getjsonp(o.table, self.cruise, o.from, o.to, function(jsonp) {
       var data = transformData(jsonp, o.recordHandler);
       fillGaps(o.cur, data);  // Fill gaps in record with null objects
@@ -258,8 +258,9 @@ function cstarHandler(d, data) {
 }
 
 function getjsonp(table, cruise, begin, end, cb) {
-  var url = "http://52.0.94.129/" + table;
-  url += "?cruise=" + encodeURIComponent(cruise);
+  var url = "http://52.0.94.129/";  // Must end in a slash!
+  //var url = "http://localhost:3000/";  // Must end in a slash!
+  url += table + "?cruise=" + encodeURIComponent(cruise);
   if (begin) {
     url += "&begin=" + encodeURIComponent(begin.toString());
   }

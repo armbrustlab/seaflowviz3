@@ -1,6 +1,8 @@
 import argparse
+import datetime
 import dateutil.parser
 import sys
+import time
 from sqlalchemy import Column, Integer, Float, Date, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
@@ -180,13 +182,67 @@ def statFilter(rows, session):
     return filt
 
 
+def insert_rows(sflrows, statrows, session):
+    """Insert rows all at once"""
+    session.bulk_insert_mappings(SFL, sflrows)
+    session.bulk_insert_mappings(Stat, statrows)
+    session.commit()
+    print "Inserted {} SFL rows".format(len(sflrows))
+    print "Inserted {} Stat rows".format(len(statrows))
+
+
+def insert_rows_trickle(sflrows, statrows, session, window=3, freq=30):
+    """Insert rows slowly to simulate realtime cruise"""
+    if (not sflrows or not statrows):
+        return
+    window_end = sflrows[0]["epoch_ms"] + window * 60 * 1000
+    sflstart, statstart = 0, 0  # start of a window
+    sflend, statend = 0, 0  # end of a window
+    while sflstart < len(sflrows) or statstart < len(statrows):
+        while sflend < len(sflrows):
+            if sflrows[sflend]["epoch_ms"] > window_end:
+                break
+            sflend += 1
+        while statend < len(statrows):
+            if statrows[statend]["epoch_ms"] > window_end:
+                break
+            statend += 1
+
+        window_end = sflrows[sflend]["epoch_ms"]
+
+        if sflstart < len(sflrows):
+            session.bulk_insert_mappings(SFL, sflrows[sflstart:sflend])
+            session.commit()
+            print "Inserted {} SFL rows".format(len(sflrows[sflstart:sflend]))
+            print "{} to {}".format(sflrows[sflstart]["date"], sflrows[sflend-1]["date"])
+        if statstart < len(statrows):
+            session.bulk_insert_mappings(Stat, statrows[statstart:statend])
+            session.commit()
+            print "Inserted {} Stat rows".format(len(statrows[statstart:statend]))
+            print "{} to {}".format(statrows[statstart]["date"], statrows[statend-1]["date"])
+
+        sflstart = sflend
+        statstart = statend
+        window_end = sflrows[sflstart]["epoch_ms"] + window * 60 * 1000 - 1
+
+        time.sleep(freq)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Insert SFL and Stat SeaFlow data into sqlite3 viz db."
-    )
+        description="Insert SFL and Stat SeaFlow data into sqlite3 viz db.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("sfl", help="SFL CSV file")
     parser.add_argument("stat", help="Stat CSV file")
     parser.add_argument("db", help="SQLite3 DB file")
+    parser.add_argument("-s", "--simulate_realtime", action="store_true",
+        help="""Simulate realtime cruise by adding --window new minutes of
+        realtime data every --frequency seconds.""")
+    parser.add_argument("-w", "--window", default=3, type=int,
+        help="""Size of each incremental realtime addition during cruise
+        simulation.""")
+    parser.add_argument("-f", "--frequency", default=30, type=int,
+        help="""How often to add new realtime data during cruise simulation.""")
     args = parser.parse_args()
 
     engine = create_engine("sqlite:///{}".format(args.db))
@@ -197,17 +253,14 @@ if __name__ == "__main__":
 
     try:
         # Only import new realtime data
-        # Import any other cruise data
-        rows = sflFilter(read_sfl(args.sfl), s)
-        s.bulk_insert_mappings(SFL, rows)
-        s.commit()
-        print "Inserted {} SFL rows".format(len(rows))
-
-        # Only import new realtime data
-        # Import any other cruise data
-        rows = statFilter(read_stat(args.stat), s)
-        s.bulk_insert_mappings(Stat, rows)
-        s.commit()
-        print "Inserted {} Stat rows".format(len(rows))
+        # Import any other cruise data, assume no duplicates
+        sflrows = sflFilter(read_sfl(args.sfl), s)
+        statrows = statFilter(read_stat(args.stat), s)
+        if args.simulate_realtime:
+            insert_rows_trickle(sflrows, statrows, s, args.window, args.frequency)
+        else:
+            now = time.time()
+            print datetime.datetime.utcfromtimestamp(now).strftime('%Y-%m-%d %H:%M:%SZ')
+            insert_rows(sflrows, statrows, s)
     finally:
         s.close()

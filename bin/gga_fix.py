@@ -59,14 +59,14 @@ def csv_gga2dd(csv_in, csv_out, cruise=None):
     with open(csv_in) as fin:
         with open(csv_out, "w") as fout:
             lines = fin.readlines()
-            header = lines[0].split(",")
+            header = lines[0].rstrip().split(",")
             lat_index = header.index("lat")
             lon_index = header.index("lon")
             cruise_index = header.index("cruise")
             fout.write(lines[0])
             i = 0
             for line in lines[1:]:
-                fields = line.split(",")
+                fields = line.rstrip().split(",")
 
                 # Replace cruise name
                 if not cruise is None:
@@ -89,7 +89,7 @@ def csv_gga2dd(csv_in, csv_out, cruise=None):
                     sys.stderr.write("%i: %s\n" % (i, line))
                     raise
 
-                fout.write(",".join(fields))
+                fout.write(",".join(fields) + "\n")
                 i += 1
 
 if __name__ == "__main__":

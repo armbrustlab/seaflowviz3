@@ -5,29 +5,29 @@ import sys
 
 
 def csv_replace_cruise(cruise, csv_in, csv_out):
-    """Convert coords in SeaFlow csv file to decimal degrees from GGA.
+    """Replace cruise name in csv file.
 
     Args:
         cruise: Replacement cruise field name
-        csv_in: Input CSV file path. File should have coords in columns
-                headers "lat" and "lon".
+        csv_in: Input CSV file path. File should have cruise name in "cruise"
+            column.
         csv_out: Output CSV file path
     """
     with open(csv_in) as fin:
         with open(csv_out, "w") as fout:
             lines = fin.readlines()
-            header = lines[0].split(",")
+            header = lines[0].rstrip().split(",")
             cruise_index = header.index("cruise")
             fout.write(lines[0])
             i = 0
             for line in lines[1:]:
-                fields = line.split(",")
+                fields = line.rstrip().split(",")
 
                 # Replace cruise name
                 if cruise:
                     fields[cruise_index] = cruise
 
-                fout.write(",".join(fields))
+                fout.write(",".join(fields) + "\n")
                 i += 1
 
 

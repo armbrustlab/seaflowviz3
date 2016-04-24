@@ -30,23 +30,6 @@ function Dashboard(events) {
     return lookup[cruise];
   };
 
-  // Decide which table to use for SFL data
-  self.SflTableLookup = function(cruise) {
-    if (cruise === "realtime") {
-      return "SeaFlow Sfl Data Realtime";
-    } else {
-      return "SeaFlow Sfl Data Archive";
-    }
-  };
-
-  self.StatTableLookup = function(cruise) {
-    if (cruise === "realtime") {
-      return "SeaFlow Simple Pop Realtime";
-    } else {
-      return "SeaFlow Simple Pop Archive";
-    }
-  };
-
   // ****************************
   // Register event handlers here
   // ****************************
@@ -76,13 +59,13 @@ function Dashboard(events) {
   // New SFL data event
   // Chain into asking for new population data
   $(self.events).on("newsfldata", function(event, data) {
-    self.getSQLShareData({
+    self.getData({
       cur: self.data.stat,
       //from: self.latest,
       //to: self.latest + self.increment,
-      table: self.StatTableLookup(self.cruise),
+      table: "stat",
       event: "newstatdata",
-      recordHandler: sqlshareStatHandler
+      recordHandler: statHandler
     });
   });
 
@@ -111,13 +94,13 @@ function Dashboard(events) {
   // Starts with SFL data which can lead to a chain of data requests,
   // e.g. stat.csv population data.
   self.pollOnce = function() {
-    self.getSQLShareData({
+    self.getData({
       cur: self.data.sfl,
       //from: self.latest,
       //to: self.latest + self.increment,
-      table: self.SflTableLookup(self.cruise),
+      table: "sfl",
       event: "newsfldata",
-      recordHandler: sqlshareSflHandler,
+      recordHandler: sflHandler,
       extra: function(allData, newData) {
         addSpeed(allData);
       }
@@ -131,40 +114,26 @@ function Dashboard(events) {
     self.pollInterval = setInterval(self.pollOnce, self.refreshTimeMilli);
   };
 
+
   // options object o:
   //   cur: Array containing current data which will be appended to
   //   from: Get all data newer than this date (epoch milliseconds).
   //     Defaults to newest date in cur.
   //   to: If this is a number, get data between from and to
-  //   table: Name of the SQLShare table to query
-  //   select: Select string. Defaults to "*"
+  //   table: Name of the table to query
   //   event: Name of the event to trigger as last step
-  //   recordHandler: Function to process one record returned from SQLShare
+  //   recordHandler: Function to process one record returned query
   //   extra: Any custom processing one new and accumulated data can be done
   //     in this function. It receives two parameters, allData and newData,
   //     which contain all records and new records processed by recordHandler.
   //     This function will run immediately before the event is triggered.
-  self.getSQLShareData = function(o) {
-    o.select = o.select ? o.select : "*";
-
+  self.getData = function(o) {
     if (o.from === undefined && o.cur.length) {
       o.from = _.last(_.pluck(o.cur, "date"));
     }
-
-    var query = "SELECT ";
-    query += o.select + " FROM [seaflow.viz@gmail.com].[" + o.table + "] ";
-    query += "WHERE cruise = '" + self.cruise + "' ";
-    if (o.from) {
-      query += "AND [time] >= '" + new Date(o.from).toISOString() + "' ";
-      if (o.to) {
-        query += "AND [time] < '" + new Date(o.to).toISOString() + "' ";
-      }
-    }
-    query += "ORDER BY [time] ASC";
-
-    executeSqlQuery(query, function(jsonp) {
+    getjsonp(o.table, self.cruise, o.from, o.to, function(jsonp) {
       var data = transformData(jsonp, o.recordHandler);
-      fillGaps(o.cur, data);  // Fill gaps in record will null objects
+      fillGaps(o.cur, data);  // Fill gaps in record with null objects
       o.cur.push.apply(o.cur, data);  // Add new data to cur
       if ($.isFunction(o.extra)) {
         // Run user supplied extra function
@@ -187,23 +156,12 @@ function Dashboard(events) {
   };
 }
 
-// Turn jsonp data from SQL share query result into an arrays of JSON objects
+// Turn jsonp data into an arrays of JSON objects
 // that can be easily fed to visualizations
-function transformData(jsonp, sqlshareRecordHandler) {
-  if (jsonp.header.length < 2) {
-    alert('Query ' + data.sql + ' returned ' + jsonp.header.length +
-          ' columns, needs at least 2');
-    return;
-  }
-
-  // Figure out which columns correspond to which column headers
-  idx = Object.create(null);
-  for (var col = 0; col < jsonp.header.length; col++) {
-    idx[jsonp.header[col]] = col;
-  }
+function transformData(jsonp, recordHandler) {
   var data = [];
-  jsonp.data.forEach(function(d) {
-    sqlshareRecordHandler(d, idx, data);
+  jsonp.forEach(function(d) {
+    recordHandler(d, data);
   });
   return data;
 }
@@ -249,27 +207,23 @@ function nulled(o) {
   return nulledo;
 }
 
-function sqlshareSflHandler(d, idx, data) {
-  var curTime = Date.parse(d[idx.time]);
-  data.push({
-    date: curTime,
-    iso8601: iso(curTime),
-    lat: d[idx.lat],
-    lon: d[idx.lon],
-    temp: d[idx.ocean_tmp],
-    salinity: d[idx.salinity],
-    par: Math.max(d[idx.par], 0)
-  });
+function sflHandler(d, data) {
+  d.date = d.epoch_ms;
+  d.iso8601 = iso(d.epoch_ms);
+  d.par = Math.max(d.par, 0);
+  data.push(d);
 }
 
-function sqlshareStatHandler(d, idx, data) {
-  if (popLookup[d[idx.pop]]) {  // don't want to include unknown pops
-    var curTime = Date.parse(d[idx.time]),
+function statHandler(d, data) {
+  d.date = d.epoch_ms;
+  if (popLookup[d.pop]) {  // don't want to include unknown pops
+    var curTime = d.date,
         prev = _.last(data);
+
     if (prev && prev.date === curTime) {
-      prev.pops[popLookup[d[idx.pop]]] = {
-        fsc_small: d[idx.fsc_small],
-        abundance: d[idx.abundance]
+      prev.pops[popLookup[d.pop]] = {
+        fsc_small: d.fsc_small,
+        abundance: d.abundance
       };
       // Make sure a Prochlorococcus / Synechococcus ratio is present
       if (prev.prosyn === null) {
@@ -280,7 +234,6 @@ function sqlshareStatHandler(d, idx, data) {
           prev.prosyn = prev.pops.Prochlorococcus.abundance / prev.pops.Synechococcus.abundance;
         }
       }
-
     } else {
       var newData = {
         date: curTime,
@@ -288,40 +241,45 @@ function sqlshareStatHandler(d, idx, data) {
         prosyn: null,
         pops: {}
       };
-      newData.pops[popLookup[d[idx.pop]]] = {
-        fsc_small: d[idx.fsc_small],
-        abundance: d[idx.abundance]
+      newData.pops[popLookup[d.pop]] = {
+        fsc_small: d.fsc_small,
+        abundance: d.abundance
       };
       data.push(newData);
     }
   }
 }
 
-function sqlshareCstarHandler(d, idx, data) {
-  var curTime = Date.parse(d[idx.time]);
-  data.push({
-    date: curTime,
-    iso8601: iso(curTime),
-    attenuation: d[idx.attenuation]
-  });
+function cstarHandler(d, data) {
+  d.date = d.epoch_ms;
+  d.iso8601 = iso(d.epoch_ms);
+  d.attenuation = d.attenuation;
+  data.push(d);
 }
 
-function executeSqlQuery(query, cb) {
-  var url = 'https://rest.sqlshare.escience.washington.edu/REST.svc/execute?sql=';
+function getjsonp(table, cruise, begin, end, cb) {
+  var url = "http://52.0.94.129/" + table;
+  url += "?cruise=" + encodeURIComponent(cruise);
+  if (begin) {
+    url += "&begin=" + encodeURIComponent(begin.toString());
+  }
+  if (end) {
+    url += "&end=" + encodeURIComponent(end.toString());
+  }
   var t0 = new Date();
   $.ajax({
-    url : url + encodeURIComponent(query),
-    dataType : 'jsonp',
-    type : 'GET',
-    jsonp : 'jsonp',
-    crossDomain : 'true',
+    url : url,
+    dataType : "jsonp",
+    type : "GET",
+    jsonp : "callback",
+    crossDomain : "true",
     error : function(xhr, ts, et) {
       alert("error errorThrow:" + et);
     },
     success : function(jsonp) {
-      console.log("SQL query took " +
+      console.log("Query took " +
                   (((new Date().getTime()) - t0.getTime())/1000) + " sec");
-      console.log("Query returned " + jsonp.data.length + " data points");
+      console.log("Query returned " + jsonp.length + " data points");
       cb(jsonp);
     }
   });

@@ -1,3 +1,5 @@
+"""Create SQLite3 DB for SeaFlow data from SFL and stat CSV files."""
+
 import argparse
 import datetime
 import dateutil.parser
@@ -191,7 +193,7 @@ def insert_rows(sflrows, statrows, session):
     print "Inserted {} Stat rows".format(len(statrows))
 
 
-def insert_rows_trickle(sflrows, statrows, session, window=3, freq=30):
+def insert_rows_simulation(sflrows, statrows, session, window=3, freq=30):
     """Insert rows slowly to simulate realtime cruise"""
     if (not sflrows or not statrows):
         return
@@ -257,10 +259,10 @@ if __name__ == "__main__":
         sflrows = sflFilter(read_sfl(args.sfl), s)
         statrows = statFilter(read_stat(args.stat), s)
         if args.simulate_realtime:
-            insert_rows_trickle(sflrows, statrows, s, args.window, args.frequency)
+            insert_rows_simulation(sflrows, statrows, s, args.window, args.frequency)
         else:
             now = time.time()
-            print datetime.datetime.utcfromtimestamp(now).strftime('%Y-%m-%d %H:%M:%SZ')
+            print datetime.datetime.utcfromtimestamp(now).strftime('%Y-%m-%dT%H:%M:%SZ')
             insert_rows(sflrows, statrows, s)
     finally:
         s.close()

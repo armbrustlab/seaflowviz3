@@ -1,17 +1,16 @@
+// Serve SeaFlow SFL and stat population data from a SQLite3 DB created with
+// https://github.com/armbrustlab/seaflowviz3/bin/import_sfl_stat.py
 var compression = require("compression");
 var express = require("express");
 var fs = require("fs");
 var sqlite3 = require("sqlite3").verbose();
 
 
-
-function get_sfl(db, cruise, begin, end, cb) {
-  //var fields = "cruise, file, date, lat, lon, salinity, ocean_tmp, par, epoch_ms";
-  var fields = "lat, lon, salinity, ocean_tmp as temp, par, epoch_ms";
-  var sql = "SELECT " + fields + " FROM sfl WHERE cruise = ?";
+function get_cruise_data(db, table, fields, cruise, begin, end, cb) {
+  var sql = "SELECT " + fields + " FROM " + table + " WHERE cruise = ?";
   var params = [cruise];
   if (begin) {
-    sql += " AND epoch_ms > ?";
+    sql += " AND epoch_ms >= ?";
     params.push(begin.toString());
   }
   if (end) {
@@ -22,38 +21,24 @@ function get_sfl(db, cruise, begin, end, cb) {
 
   db.all(sql, params, function(err, rows) {
     if (err) {
-      console.log("Error: get_sfl");
+      console.log("Error: get_cruise_data(" + table + ")");
       console.log(err);
     } else {
       cb(rows);
     }
   });
+}
+
+function get_sfl(db, cruise, begin, end, cb) {
+  var fields = "lat, lon, salinity, ocean_tmp as temp, par, epoch_ms";
+  get_cruise_data(db, "sfl", fields, cruise, begin, end, cb);
 }
 
 function get_stat(db, cruise, begin, end, cb) {
-  //var fields = "cruise, file, date, fsc_small, abundance, pop, epoch_ms";
   var fields = "fsc_small, abundance, pop, epoch_ms";
-  var sql = "SELECT " + fields + " FROM stat WHERE cruise = ?";
-  var params = [cruise];
-  if (begin) {
-    sql += " AND epoch_ms > ?";
-    params.push(begin.toString());
-  }
-  if (end) {
-    sql += " AND epoch_ms <= ?";
-    params.push(end.toString());
-  }
-  sql += " ORDER BY epoch_ms ASC";
-
-  db.all(sql, params, function(err, rows) {
-    if (err) {
-      console.log("Error: get_stat");
-      console.log(err);
-    } else {
-      cb(rows);
-    }
-  });
+  get_cruise_data(db, "stat", fields, cruise, begin, end, cb);
 }
+
 
 if (process.argv.length < 3) {
   console.log("usage: node index.js sqlite3.db [port]");

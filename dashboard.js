@@ -128,9 +128,9 @@ function Dashboard(events) {
   //     This function will run immediately before the event is triggered.
   self.getData = function(o) {
     if (o.from === undefined && o.cur.length) {
-      o.from = _.last(_.pluck(o.cur, "date"));
+      // Latest epoch timestamp plus 1 ms
+      o.from = _.last(_.pluck(o.cur, "date")) + 1;
     }
-    console.log("getData for " + o.table + " " + self.cruise);
     getjsonp(o.table, self.cruise, o.from, o.to, function(jsonp) {
       var data = transformData(jsonp, o.recordHandler);
       fillGaps(o.cur, data);  // Fill gaps in record with null objects
@@ -210,7 +210,9 @@ function nulled(o) {
 function sflHandler(d, data) {
   d.date = d.epoch_ms;
   d.iso8601 = iso(d.epoch_ms);
+  if (d.par !== undefined && d.par !== null) {
   d.par = Math.max(d.par, 0);
+  }
   data.push(d);
 }
 

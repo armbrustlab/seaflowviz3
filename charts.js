@@ -139,7 +139,7 @@ function Charts(events) {
       title: null,
       yAxisTitle: "Abundance",
       series: makeEmptyPopSeries(),
-      seriesValueSuffix: " 10^6 cells/L",
+      seriesValueSuffix: " 10<sup>6</sup> cells/L",
       div: "abundance",
       showLegend: true,
       showNavigator: true,
@@ -366,7 +366,7 @@ Set options common to all charts
 */
 function setDefaultChartOptions() {
   var headerFormat = '<span style="font-size: 10px"><strong>{point.key}</strong>';
-  headerFormat += '<br/>Click point to remove from plot<br /></span>';
+  headerFormat += '<br />Click point to remove from plot<br /></span>';
 
   Highcharts.setOptions({
     loading: {
@@ -397,7 +397,8 @@ function setDefaultChartOptions() {
     tooltip: {
       valueDecimals: 2,
       hideDelay: 100,
-      headerFormat: headerFormat
+      headerFormat: headerFormat,
+      useHTML: true
     },
     chart: {
       plotBorderWidth: 2,

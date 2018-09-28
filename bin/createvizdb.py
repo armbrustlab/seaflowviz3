@@ -79,10 +79,18 @@ def read_csv(csv_file):
     return rows
 
 
+def na_wrapper(func):
+    def f(val):
+        if val == 'NA':
+            return None
+        else:
+            return func(val)
+    return f
+
 def table_coercer(table_class):
     sqlalchemy_type_to_python = {
-        "Float": float,
-        "Integer": int,
+        "Float": na_wrapper(float),
+        "Integer": na_wrapper(int),
         "String": str
     }
     c = {}
@@ -101,6 +109,9 @@ def coerce_row(row, coercer):
             val = coercer[k](row[k])
         except ValueError:
             val = None
+        except KeyError:
+            # Row has extra columns not defined in table, ignore the column.
+            continue
         row[k] = val
 
 
@@ -117,6 +128,9 @@ def read_sfl(csv):
     for r in rows:
         coerce_row(r, coercer)
         r["epoch_ms"] = date2epoch_ms(r["date"])
+        # Default to calling this realtime
+        if 'cruise' not in r:
+            r['cruise'] = 'realtime'
     return rows
 
 
@@ -128,7 +142,19 @@ def read_stat(csv):
         if "time" in r:
             r["date"] = r["time"]
         r["epoch_ms"] = date2epoch_ms(r["date"])
-    return rows
+        # Default to calling this realtime
+        if 'cruise' not in r:
+            r['cruise'] = 'realtime'
+    finalrows = []
+
+    # Only take 50% quantile if this is quantile data
+    for r in rows:
+        try:
+            if r['quantile'] == '50':
+                finalrows.append(r)
+        except KeyError:
+            finalrows.append(r)
+    return finalrows
 
 
 def getLastRealtimeSfl(session):

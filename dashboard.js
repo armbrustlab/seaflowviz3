@@ -260,7 +260,7 @@ function cstarHandler(d, data) {
 }
 
 function getjsonp(table, cruise, begin, end, cb) {
-  var url = "http://52.0.94.129/";  // Must end in a slash!
+  var url = "https://seaflowinstrument.org/";  // Must end in a slash!
   //var url = "http://localhost:3000/";  // Must end in a slash!
   url += table + "?cruise=" + encodeURIComponent(cruise);
   if (begin) {
